@@ -1,0 +1,8 @@
+#
+network:
+  version: 2
+  ethernets:
+    ens18:
+      dhcp4: true
+    eth0:
+      dhcp4: true

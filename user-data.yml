@@ -1,0 +1,19 @@
+#cloud-config
+hostname: ubuntu2404-ci
+manage_etc_hosts: true
+user: demo
+ssh_authorized_keys:
+  - #### Add here your SSH public keys to allow SSH access to the VM
+chpasswd:
+  expire: False
+users:
+  - default
+locale: fr_FR.UTF-8
+timezone: Europe/Paris
+keyboard:
+  layout: fr
+  variant: nodeadkeys
+package_update: true
+package_upgrade: true
+packages:
+  - qemu-guest-agent
