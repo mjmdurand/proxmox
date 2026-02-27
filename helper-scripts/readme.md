@@ -1,0 +1,4 @@
+- https://community-scripts.github.io/ProxmoxVE/
+- https://docs.ansible.com/projects/ansible/latest/collections/community/proxmox/index.html
+- https://registry.terraform.io/providers/Telmate/proxmox/latest/docs
+- 
