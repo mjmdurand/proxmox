@@ -1,0 +1,9 @@
+---
+# playbook.yml
+- name: 'Provision Docker VM'
+  hosts: all
+  become: true
+
+  roles:
+    # - docker
+    - prometheus.prometheus.node_exporter

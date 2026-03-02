@@ -1,0 +1,33 @@
+php_config_version: "{{ php_version }}"
+php_config_types:
+  - cli
+  - fpm
+
+# WARNING : EDIT PHP INI CONFIG CAN CAUSE FAILURE FOR MSSQL-PHP ROLE (open_basedir for example) !
+# NEVER CHANGE THE ORDER AS OTHER ROLES REFERS TO THIS LIST
+# example : logs-rotation use php_config_settings[0].param_value
+php_config_settings:
+  - parameter: "error_log"
+    version: cli
+    param_value: "{{ tree_structure_config[2].path }}/php_errors.log"
+  - parameter: "error_log"
+    version: fpm
+    param_value: "{{ tree_structure_config[3].path }}/php_errors.log"
+  - parameter: "error_reporting"
+    param_value: "E_ALL"
+  - parameter: "display_startup_errors"
+    param_value: "Off"
+  - parameter: "ignore_repeated_errors"
+    param_value: "Off"
+  - parameter: "ignore_repeated_source"
+    param_value: "Off"
+  - parameter: "html_errors"
+    param_value: "Off"
+  - parameter: "track_errors"
+    param_value: "Off"
+  - parameter: "display_errors"
+    param_value: "Off"
+  - parameter: "log_errors"
+    param_value: "Off"
+  # - parameter: "open_basedir"
+  #   param_value: "/projects/demo:/projects/demo2:/projects/demo3"

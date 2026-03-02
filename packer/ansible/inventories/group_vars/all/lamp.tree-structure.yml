@@ -1,0 +1,15 @@
+---
+# defaults file for tree-structure
+tree_structure_path_prefix: "/space/www"
+tree_structure_path_suffix: "current"
+tree_structure_logs_prefix: "/space/logs"
+
+# NEVER CHANGE THE ORDER AS OTHER ROLES REFERS TO THIS LIST
+# example : php-config and apache-vhosts use tree_structure_config[1].path
+tree_structure_config:
+  # MAIN
+  - path: "{{ tree_structure_path_prefix }}"
+  # LOGS
+  - path: "{{ tree_structure_logs_prefix }}/apache2"
+  - path: "{{ tree_structure_logs_prefix }}/php-cli"
+  - path: "{{ tree_structure_logs_prefix }}/php-fpm"
