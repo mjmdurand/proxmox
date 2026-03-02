@@ -3,3 +3,5 @@
 - https://forums.lawrencesystems.com/t/hardening-proxmox-backup-server-secure-permissions-sync-jobs/26519
 
 - ensure user have permissions & token have permissions
+
+- https://remote-backups.com/blog/immutable-backups-ransomware-protection
