@@ -44,6 +44,12 @@ variable "template_name" {
   default     = ""
 }
 
+variable "vm_id" {
+  type        = number
+  description = "The ID of the VM/template to create"
+  default     = null
+}
+
 #### VM Settings
 variable "memory" {
   type        = number
@@ -152,6 +158,7 @@ source "proxmox-clone" "linux-server" {
   scsi_controller = var.scsi_controller
   os              = var.os
   tags            = var.tags
+  vm_id           = var.vm_id
 
   #### SSH provisioning
   ssh_username         = var.ssh_username
