@@ -1,15 +1,65 @@
-# Pre-requirements
-- The template used need to have qemu-guest-agent installed
-- The template used must have a cloud-init drive
-- The template used must have the network set as DHCP in cloud-init parameters
-- You should perform an initial cloud-init before running packer
+# Create the base template
+- create a VM using a cloud disk
+- Setup cloud-init drive
+- Setup Cloud-init network on GUI => IPV4 DHCP auto
+- Resize HDD (~10GB recommended)
+- provide a basic cloud-init file to allow packer to get the VM IP : 
 
-Packer will automatically 
+user-data.yml
+```yaml 
+#cloud-config
 
-as root [TO DO => change permissions]: 
-docker exec -it --user root packer-packer-1 bash
-packer init templates/main.pkr.hcl
+hostname: ubuntu2404-ci
+manage_etc_hosts: true
 
-as user : 
-docker exec -it packer-packer-1 bash
-packer build -on-error=ask -var-file variables/proxmox/ubuntu2404-lamp.pkvars.hcl templates/main.pkr.hcl
+ssh_pwauth: false
+
+users:
+  - name: demo
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+    passwd: $6$5NcXlX36dm0YnHri$e28vjgEHVYqxA16z/cbt0iw4lwVJPCUUAJcsFExMp3oXd4bSVxabKVR3sd0Apd6uqDG8FkxqSNMHrkQp3LsPm/
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1....... demo
+  - default
+
+locale: fr_FR.UTF-8
+timezone: Europe/Paris
+
+keyboard:
+  layout: fr
+  variant: nodeadkeys
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - qemu-guest-agent
+```
+
+vendor-data.yml
+```yaml
+#cloud-config
+runcmd:
+    - reboot
+```
+
+```bash
+qm set 901 --cicustom "user=cephfs:snippets/user-data-ubuntu.yml,vendor=cephfs:snippets/vendor-data.yml"
+qm cloudinit update 901
+```
+- Convert the VM to a template
+
+# Build the golden image with Packer
+- Customize ansible playbooks & inventory in the `ansible` directory
+- Customize the template to create with .pkvars.hcl
+- Run packer build
+```bash
+docker compose up -d
+docker exec -it packer-packer-1 packer init templates/proxmox-clone.pkr.hcl
+docker exec -it packer-packer-1 packer build -on-error=ask -var-file variables/proxmox/debian13-lamp.pkvars.hcl templates/proxmox-clone.pkr.hcl
+
+## to force existing VM deletion
+docker exec -it packer-packer-1 packer build -force -on-error=ask -var-file variables/proxmox/debian13-lamp.pkvars.hcl templates/proxmox-clone.pkr.hcl
+```
