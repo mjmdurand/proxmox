@@ -32,9 +32,15 @@ variable "clone_vm" {
   default = ""
 }
 
+variable "vm_name" {
+  type    = string
+  description = "The name of the Build VM to create"
+  default = ""
+}
+
 variable "template_name" {
   type    = string
-  description = "The template name"
+  description = "The final template name"
   default = ""
 }
 
@@ -86,6 +92,19 @@ variable "inventory_directory" {
 locals {
   buildtime = formatdate("YYYY-MM-DD hh:mm ZZZ", timestamp())
 }
+
+variable "ssh_username" {
+  type = string
+  description = "The SSH username for the VM."
+  default = "ansible"
+}
+
+variable "ssh_private_key_file" {
+  type = string
+  description = "The path to the SSH private key file."
+  default = "./ssh/id_rsa"
+}
+
 
 ##################################################################################
 # BUILDERS TO INSTALL
