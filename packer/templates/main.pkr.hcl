@@ -88,6 +88,12 @@ variable "inventory_directory" {
   default = "ansible/inventories/"
 }
 
+variable "groups" {
+  type = list(string)
+  description = "The Ansible groups to include the host in."
+  default = ["default"]
+}
+
 #### PACKER SETTINGS
 locals {
   buildtime = formatdate("YYYY-MM-DD hh:mm ZZZ", timestamp())
@@ -168,6 +174,7 @@ build {
       galaxy_file = "ansible/requirements.yml"
       roles_path = "ansible/roles"
       inventory_directory = var.inventory_directory
+      groups = var.groups
       ansible_env_vars = [
         "ANSIBLE_CONFIG=ansible/ansible.cfg",
       ]

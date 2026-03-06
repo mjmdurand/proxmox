@@ -16,11 +16,7 @@
     - geerlingguy.mysql
     - prometheus.prometheus.node_exporter
 
-  tasks:
-    - name: DEBUG
-      debug:
-        msg: "docker_users =  {{ docker_users }}"
-        
+  tasks:      
     - name: Ensure Apache mods are properly disabled.
       file:
         path: "{{ apache_server_root }}/mods-enabled/{{ item }}.load"

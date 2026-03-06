@@ -22,3 +22,4 @@ ssh_private_key_file = "./ssh/id_rsa"
 #### Ansible provisioning
 playbook_file               = "ansible/playbooks/lamp.yml"
 inventory_directory         = "ansible/inventories/"
+groups                 = ["debian"]
