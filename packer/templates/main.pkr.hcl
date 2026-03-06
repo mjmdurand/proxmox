@@ -1,3 +1,8 @@
+##################################################################################
+# VARIABLES
+##################################################################################
+
+#### Hypervisor connection
 variable "PROXMOX_URL" {
   type = string
   default = env("PROXMOX_URL")
@@ -14,10 +19,89 @@ variable "PROXMOX_TOKEN" {
   default = env("PROXMOX_TOKEN")
 }
 
+#### Clone & template settings
+variable "node" {
+  type    = string
+  description = "The template node to clone from"
+  default = "pve-01"
+}
+
+variable "clone_vm" {
+  type    = string
+  description = "The template vm to clone from"
+  default = ""
+}
+
+variable "template_name" {
+  type    = string
+  description = "The template name"
+  default = ""
+}
+
+#### VM Settings
+variable "memory" {
+  type = number
+  description = "The amount of memory for the VM."
+  default = 2048
+}
+
+variable "cores" {
+  type = number
+  description = "The number of virtual CPUs."
+  default = 2
+}
+
+variable "scsi_controller" {
+  type = string
+  description = "The SCSI controller type."
+  default = "virtio-scsi-single"
+}
+
+variable "os" {
+  type = string
+  description = "The operating system type."
+  default = "l26"
+}
+
+variable "tags" {
+  type = string
+  description = "The tags to apply to the VM."
+  default = ""
+}
+
+#### ANSIBLE SETTINGS
+variable "playbook_file" {
+  type = string
+  description = "The Ansible playbook file to use."
+  default = "ansible/playbooks/default.yml"
+}
+
+variable "inventory_directory" {
+  type = string
+  description = "The Ansible inventory directory."
+  default = "ansible/inventories/"
+}
+
+#### PACKER SETTINGS
 locals {
   buildtime = formatdate("YYYY-MM-DD hh:mm ZZZ", timestamp())
 }
 
+##################################################################################
+# BUILDERS TO INSTALL
+##################################################################################
+packer {
+  required_plugins {
+    name = {
+      version = "~> 1"
+      source  = "github.com/hashicorp/proxmox"
+    }
+  }
+}
+
+##################################################################################
+# SOURCE
+##################################################################################
 source "proxmox-clone" "linux-server" {
   #### Global settings
   task_timeout = "5m"
@@ -29,33 +113,46 @@ source "proxmox-clone" "linux-server" {
   insecure_skip_tls_verify = true
 
   #### origin VM
-  node = "pve-01"
-  clone_vm = "packer-base" # or use clone_vm_id = 106
+  node = var.node
+  clone_vm = var.clone_vm
 
   #### Dest VM
-  vm_name = "packer-build"
-  memory = 2048
-  cores = 2
-  scsi_controller = "virtio-scsi-single"
-  os = "l26" # Linux 2.6+
-  tags = "Packer;Debian-13;Linux"
+  vm_name = var.vm_name
+  memory = var.memory
+  cores = var.cores
+  scsi_controller = var.scsi_controller
+  os = var.os
+  tags = var.tags
 
   #### SSH provisioning
-  ssh_username = "demo"
-  ssh_private_key_file = "./ssh/id_rsa"
+  ssh_username = var.ssh_username
+  ssh_private_key_file = var.ssh_private_key_file
   ssh_timeout = "10m"
 
   #### Dest template
-  template_name = "packer-build-test"
+  template_name = var.template_name
   template_description = "Built by HashiCorp Packer on ${local.buildtime}"
 }
 
+##################################################################################
+# BUILD
+##################################################################################
+
 build {
   sources = ["source.proxmox-clone.linux-server"]
+  provisioner "ansible" {
+      playbook_file = var.playbook_file
+      galaxy_file = "ansible/requirements.yml"
+      roles_path = "ansible/roles"
+      inventory_directory = var.inventory_directory
+      ansible_env_vars = [
+        "ANSIBLE_CONFIG=ansible/ansible.cfg",
+      ]
+    }
   provisioner "shell" {
     inline = [
       "sudo apt update",
-      "sudo apt install apache2 unzip -y",
+      "sudo apt install unzip -y",
       "wget -O /tmp/massively.zip https://html5up.net/massively/download --no-check-certificate",
       "sudo rm /var/www/html/index.html",
       "sudo unzip /tmp/massively.zip -d /var/www/html/",
