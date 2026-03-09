@@ -1,0 +1,14 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for get_cloudinit_images
+cloud_image_dir: "/mnt/pve/cephfs/import"
+
+cloud_images_to_download:
+  - os: ubuntu
+    name_prefix: "ubuntu-cloud"
+    file_name: "jammy-server-cloudimg-amd64.img"
+    base_url: "https://cloud-images.ubuntu.com/jammy/current"
+  - os: debian
+    name_prefix: "debian-cloud"
+    base_url: "https://cloud.debian.org/images/cloud/trixie"
+    pattern: "debian-13-generic-amd64-.*\\.qcow2$"

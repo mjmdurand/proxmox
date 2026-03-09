@@ -9,7 +9,7 @@ RUN mkdir -p /root/.ssh /etc/ansible /workspace \
     nano \
     git \
     tar \
-    && pip install --no-cache-dir ansible==$ANSIBLE_VERSION passlib \
+    && pip install --no-cache-dir ansible==$ANSIBLE_VERSION passlib proxmoxer requests \
     && ansible-galaxy collection install community.general
 
 COPY conf/ansible.cfg /etc/ansible/ansible.cfg

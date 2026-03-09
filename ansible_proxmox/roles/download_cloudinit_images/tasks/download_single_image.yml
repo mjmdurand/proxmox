@@ -1,0 +1,152 @@
+---
+
+- name: Définir la date du jour
+  ansible.builtin.set_fact:
+    today_date: "{{ lookup('pipe','date +%Y%m%d') }}"
+
+############################################################
+# UBUNTU (SHA256)
+############################################################
+
+- name: Nettoyer SHA256SUMS Ubuntu existant
+  ansible.builtin.file:
+    path: /tmp/ubuntu_SHA256SUMS
+    state: absent
+  when: image.os == "ubuntu"
+
+- name: Télécharger SHA256SUMS Ubuntu
+  ansible.builtin.get_url:
+    url: "{{ image.base_url }}/SHA256SUMS"
+    dest: /tmp/ubuntu_SHA256SUMS
+    mode: "0644"
+  when: image.os == "ubuntu"
+
+- name: Extraire SHA256 Ubuntu
+  ansible.builtin.shell: |
+    grep "{{ image.file_name }}" /tmp/ubuntu_SHA256SUMS | awk '{print $1}'
+  register: ubuntu_remote_sha
+  changed_when: false
+  when: image.os == "ubuntu"
+
+- name: Lister images Ubuntu existantes
+  ansible.builtin.find:
+    paths: "{{ cloud_image_dir }}"
+    patterns: "*_jammy-server-cloudimg-amd64.qcow2"
+  register: ubuntu_images
+  when: image.os == "ubuntu"
+
+- name: Calculer SHA256 des images Ubuntu locales
+  ansible.builtin.shell: sha256sum {{ item.path }} | awk '{print $1}'
+  register: ubuntu_local_sha
+  loop: "{{ ubuntu_images.files }}"
+  changed_when: false
+  when: image.os == "ubuntu"
+
+- name: Vérifier si l'image Ubuntu existe déjà
+  ansible.builtin.set_fact:
+    ubuntu_image_exists: "{{ ubuntu_remote_sha.stdout in (ubuntu_local_sha.results | map(attribute='stdout') | list) }}"
+  when: image.os == "ubuntu"
+
+- name: Télécharger l'image Ubuntu si nécessaire
+  ansible.builtin.get_url:
+    url: "{{ image.base_url }}/{{ image.file_name }}"
+    dest: "{{ cloud_image_dir }}/{{ today_date }}_{{ image.file_name }}"
+    mode: "0644"
+  when:
+    - image.os == "ubuntu"
+    - not ubuntu_image_exists | default(false)
+
+- name: Renommer Ubuntu .img en .qcow2 correctement
+  ansible.builtin.command:
+    cmd: mv "{{ cloud_image_dir }}/{{ today_date }}_{{ image.file_name }}"
+        "{{ cloud_image_dir }}/{{ today_date }}_{{ image.file_name | basename | splitext | first }}.qcow2"
+  when:
+    - image.os == "ubuntu"
+    - not ubuntu_image_exists | default(false)
+
+
+############################################################
+# DEBIAN (SHA512)
+############################################################
+
+- name: Lister les builds Debian Trixie officiels
+  ansible.builtin.uri:
+    url: https://cloud.debian.org/images/cloud/trixie/
+    return_content: yes
+  register: debian_index
+
+- name: Extraire les répertoires YYYYMMDD-BUILD
+  ansible.builtin.set_fact:
+    debian_builds: >-
+      {{
+        debian_index.content
+        | regex_findall('href="([0-9]{8}-[0-9]+/)') 
+      }}
+
+- name: Choisir le dernier build Debian
+  ansible.builtin.set_fact:
+    debian_latest_build: "{{ debian_builds | sort | last }}"
+
+- name: Définir URL du dernier build Debian
+  ansible.builtin.set_fact:
+    debian_base_url: "https://cloud.debian.org/images/cloud/trixie/{{ debian_latest_build }}"
+
+- name: Nettoyer SHA512SUMS Debian existant
+  ansible.builtin.file:
+    path: /tmp/debian_SHA512SUMS
+    state: absent
+
+- name: Télécharger SHA512SUMS Debian
+  ansible.builtin.get_url:
+    url: "{{ debian_base_url }}SHA512SUMS"
+    dest: /tmp/debian_SHA512SUMS
+    mode: "0644"
+
+- name: Lire SHA512SUMS Debian et filtrer debian-13-generic-amd64.qcow2
+  ansible.builtin.slurp:
+    src: /tmp/debian_SHA512SUMS
+  register: debian_sha512data
+
+- name: Extraire ligne du fichier Debian AMD64
+  ansible.builtin.set_fact:
+    debian_line_list: >-
+      {{
+        (debian_sha512data.content | b64decode | string).splitlines()
+        | select('search','debian-13-generic-amd64-[0-9]+-[0-9]+\.qcow2')
+        | list
+      }}
+
+
+- name: Vérifier qu'on a trouvé au moins une ligne Debian
+  ansible.builtin.assert:
+    that:
+      - debian_line_list | length > 0
+    fail_msg: "Pas de fichier Debian AMD64 trouvé dans SHA512SUMS !"
+
+- name: Extraire SHA512 et nom fichier Debian
+  ansible.builtin.set_fact:
+    debian_filename: "{{ debian_line_list[-1] | regex_replace('^([^ ]+)\\s+(.+)$', '\\2') }}"
+    debian_remote_sha: "{{ debian_line_list[-1] | regex_replace('^([^ ]+)\\s+(.+)$', '\\1') }}"
+
+- name: Lister images Debian existantes
+  ansible.builtin.find:
+    paths: "{{ cloud_image_dir }}"
+    patterns: "*_debian-13-generic-amd64-*.qcow2"
+  register: debian_images
+
+- name: Calculer SHA512 des images Debian locales
+  ansible.builtin.shell: sha512sum {{ item.path }} | awk '{print $1}'
+  register: debian_local_sha
+  loop: "{{ debian_images.files }}"
+  changed_when: false
+
+- name: Vérifier si l'image Debian existe déjà
+  ansible.builtin.set_fact:
+    debian_image_exists: "{{ debian_remote_sha in (debian_local_sha.results | map(attribute='stdout') | list) }}"
+
+- name: Télécharger image Debian si nécessaire
+  ansible.builtin.get_url:
+    url: "{{ debian_base_url }}{{ debian_filename }}"
+    dest: "{{ cloud_image_dir }}/{{ today_date }}_{{ debian_filename }}"
+    mode: "0644"
+  when: not debian_image_exists | default(false)

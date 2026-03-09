@@ -1,0 +1,93 @@
+---
+# tasks/create_vm.yml
+
+- name: Vérifier si la VM existe déjà
+  ansible.builtin.shell: qm status {{ vm.vmid }}
+  register: vm_status
+  ignore_errors: true
+
+- name: Demander confirmation pour supprimer la VM existante
+  ansible.builtin.pause:
+    prompt: "La VM {{ vm.vm_name }} ({{ vm.vmid }}) existe déjà. Supprimer la VM ? (y/n)"
+  when: vm_status.rc == 0
+  register: confirm_delete
+
+- name: Arrêter la VM si elle est en cours d'exécution
+  ansible.builtin.shell: qm stop {{ vm.vmid }}
+  when: vm_status.rc == 0 and confirm_delete.user_input | lower == "y"
+  register: stop_vm
+  failed_when: false
+
+- name: Supprimer la VM existante
+  ansible.builtin.shell: qm destroy {{ vm.vmid }} --purge
+  when: vm_status.rc == 0 and confirm_delete.user_input | lower == "y"
+  register: destroy_vm
+  failed_when: destroy_vm.rc not in [0,2]
+
+- name: Arrêter le playbook si l'utilisateur refuse la suppression
+  ansible.builtin.debug:
+    msg: "La VM existe déjà et n'a pas été supprimée. Fin du playbook."
+  when: vm_status.rc == 0 and confirm_delete.user_input | lower != "y"
+  failed_when: true
+
+- name: Créer la VM de base via API
+  community.proxmox.proxmox_kvm:
+    api_host: "{{ vm.proxmox_host }}"
+    api_user: "{{ vm.token_user }}"
+    api_token_id: "{{ vm.token_name }}"
+    api_token_secret: "{{ vm.token_secret }}"
+    node: "{{ vm.proxmox_node }}"
+    vmid: "{{ vm.vmid }}"
+    name: "{{ vm.vm_name }}"
+    cores: "{{ vm.cores | default(default_cores) }}"
+    memory: "{{ vm.memory | default(default_memory) }}"
+    agent: 1
+    net:
+      net0: "{{ vm.network | default(default_network) }}"
+    ide:
+      ide2: "{{ vm.cloudinit_disk }}:cloudinit,format=qcow2"
+    scsihw: "{{ vm.scsihw | default(default_scsihw) }}"
+    tags: "{{ vm.tags | default(default_tags) }}"
+  delegate_to: localhost
+
+- name: Importer le disque cloud QCOW2 existant depuis CephFS
+  ansible.builtin.shell: >
+    /usr/sbin/qm importdisk {{ vm.vmid }} {{ vm.qcow2_image }} {{ vm.storage_disk }}
+  register: import_result
+  failed_when: import_result.rc not in [0,2]
+
+- name: Attacher le disque importé comme scsi0
+  ansible.builtin.shell: >
+    /usr/sbin/qm set {{ vm.vmid }} --scsihw {{ vm.scsihw | default(default_scsihw) }} --scsi0 {{ vm.storage_disk }}:vm-{{ vm.vmid }}-disk-0
+  register: set_disk_result
+  failed_when: set_disk_result.rc not in [0,2]
+
+- name: Étendre le disque scsi0
+  ansible.builtin.shell: >
+    /usr/sbin/qm resize {{ vm.vmid }} scsi0 {{ vm.disk_size_increase | default(default_disk_increase) }}
+  register: resize_result
+  failed_when: resize_result.rc not in [0,2]
+
+- name: Définir le boot sur le disque principal (scsi0)
+  ansible.builtin.shell: >
+    /usr/sbin/qm set {{ vm.vmid }} --boot order=scsi0
+  register: boot_result
+  failed_when: boot_result.rc not in [0,2]
+
+- name: Ajouter les fichiers Cloud-Init personnalisés
+  ansible.builtin.shell: >
+    /usr/sbin/qm set {{ vm.vmid }} --cicustom "user={{ vm.cephfs_snippets }}:snippets/{{ vm.user_data_file }},vendor={{ vm.cephfs_snippets }}:snippets/{{ vm.vendor_data_file }},network={{ vm.cephfs_snippets }}:snippets/{{ vm.network_data_file }}"
+  register: cicustom_result
+  failed_when: cicustom_result.rc not in [0,2]
+
+- name: Appliquer Cloud-Init sur la VM
+  ansible.builtin.shell: >
+    /usr/sbin/qm cloudinit update {{ vm.vmid }}
+  register: cloudinit_update_result
+  failed_when: cloudinit_update_result.rc not in [0,2]
+
+- name: Convertir la VM en template
+  ansible.builtin.shell: >
+    /usr/sbin/qm template {{ vm.vmid }}
+  register: template_result
+  failed_when: template_result.rc not in [0,2]

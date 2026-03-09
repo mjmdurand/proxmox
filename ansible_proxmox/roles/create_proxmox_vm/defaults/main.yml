@@ -1,0 +1,11 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for create_VM_proxmox
+vm_list: []  # liste de VMs à créer, à définir dans l'inventaire ou playbook
+
+default_cores: 2
+default_memory: 2048
+default_tags: "cloud,auto"
+default_disk_increase: "+7G"
+default_network: "virtio,bridge=vmbr0"
+default_scsihw: "virtio-scsi-pci"

@@ -1,0 +1,7 @@
+---
+- name: Create base templates VM from cloud images
+  hosts: pve-01
+  become: true
+
+  roles:
+    - create_proxmox_vm

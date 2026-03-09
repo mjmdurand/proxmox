@@ -1,0 +1,8 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for get_cloudinit_images
+- name: Boucle sur chaque image à récupérer
+  ansible.builtin.include_tasks: download_single_image.yml
+  loop: "{{ cloud_images_to_download }}"
+  loop_control:
+    loop_var: image

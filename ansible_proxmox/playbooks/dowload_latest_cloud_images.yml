@@ -1,0 +1,7 @@
+---
+- name: Download latest cloud images
+  hosts: pve-01
+  become: true
+
+  roles:
+    - download_cloudinit_images
