@@ -1,0 +1,22 @@
+#### Ansible Managed, do not edit manually
+
+# SSH port to listen
+Port {{ secure_ssh_port | default(22) }}
+
+# Disable root login
+# PermitRootLogin {{ secure_ssh_root_login | default("yes") }}
+
+# Auth by key
+PasswordAuthentication {{ secure_ssh_password_authentication | default("yes") }}
+KbdInteractiveAuthentication {{ secure_ssh_kbd_interactive_authentication | default("no") }}
+
+# Restrict bruteforce
+MaxAuthTries {{ secure_ssh_max_auth_tries | default(6) }}
+LoginGraceTime {{ secure_ssh_login_grace_time | default("2m") }}
+
+# Session timeout
+ClientAliveInterval {{ secure_ssh_client_alive_interval | default(300) }}
+ClientAliveCountMax {{ secure_ssh_client_alive_count_max | default(3) }}
+
+# Logs
+LogLevel {{ secure_ssh_log_level | default("INFO") }}

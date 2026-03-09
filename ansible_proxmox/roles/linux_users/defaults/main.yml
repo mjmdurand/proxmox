@@ -1,0 +1,7 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for linux_users
+linux_users: []
+linux_users_download_generated_keys: false
+linux_users_manage_groups: true
+
