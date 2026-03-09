@@ -1,0 +1,7 @@
+---
+- name: Secure SSH
+  hosts: all
+  become: true
+
+  roles:
+    - ssh_hardening

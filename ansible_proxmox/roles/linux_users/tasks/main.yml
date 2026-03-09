@@ -1,0 +1,108 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for linux_users
+- name: Install required packages for user management
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - python3-passlib
+    - sudo
+
+#################################################
+# GROUP MANAGEMENT
+#################################################
+
+- name: Collect groups from users definition
+  ansible.builtin.set_fact:
+    linux_users_all_groups: "{{ linux_users_all_groups | default([]) + (item.groups | default([]) | flatten) }}"
+  loop: "{{ linux_users }}"
+  when: linux_users_manage_groups
+  no_log: true
+
+- name: Normalize group list
+  ansible.builtin.set_fact:
+    linux_users_all_groups: "{{ linux_users_all_groups | flatten | unique }}"
+  when: linux_users_manage_groups
+
+- name: Create groups
+  ansible.builtin.group:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ linux_users_all_groups }}"
+  when:
+    - linux_users_manage_groups
+    - item != ""
+
+#################################################
+# USER CREATION
+#################################################
+
+- name: Ensure users exist
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    shell: "{{ item.shell | default('/bin/bash') }}"
+    groups: "{{ item.groups | default(omit) }}"
+    append: true
+    create_home: "{{ item.create_home | default(true) }}"
+    password: >-
+      {{
+        (item.password | password_hash('sha512'))
+        if (item.password is defined and item.password != '!')
+        else '!'
+      }}
+    generate_ssh_key: "{{ item.generate_ssh | default(false) }}"
+    ssh_key_bits: 4096
+    ssh_key_file: .ssh/id_rsa
+    state: present
+  loop: "{{ linux_users }}"
+  no_log: true
+
+#################################################
+# SSH KEYS
+#################################################
+
+- name: Install provided SSH public keys
+  ansible.posix.authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.ssh_public_key }}"
+    state: present
+  loop: "{{ linux_users }}"
+  when: item.ssh_public_key is defined
+  no_log: true
+
+- name: Read generated SSH public keys
+  ansible.builtin.command:
+    cmd: "cat /home/{{ item.name }}/.ssh/id_rsa.pub"
+  register: generated_keys
+  loop: "{{ linux_users }}"
+  when:
+    - item.generate_ssh | default(false)
+    - item.ssh_public_key is not defined
+  changed_when: false
+  no_log: true
+
+- name: Add generated keys to authorized_keys
+  ansible.posix.authorized_key:
+    user: "{{ item.item.name }}"
+    key: "{{ item.stdout }}"
+    state: present
+  loop: "{{ generated_keys.results }}"
+  when: item.stdout is defined
+  no_log: true
+
+#################################################
+# DOWNLOAD PRIVATE KEYS (OPTIONAL)
+#################################################
+
+- name: Download generated private keys
+  ansible.builtin.fetch:
+    src: "/home/{{ item.name }}/.ssh/id_rsa"
+    dest: "files/generated_ssh_keys/{{ inventory_hostname }}_{{ item.name }}"
+    flat: true
+  loop: "{{ linux_users }}"
+  when:
+    - linux_users_download_generated_keys | bool
+    - item.generate_ssh | default(false)
+    - item.ssh_public_key is not defined
+  no_log: true

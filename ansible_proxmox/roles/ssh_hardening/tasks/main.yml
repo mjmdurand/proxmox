@@ -1,0 +1,24 @@
+---
+- name: Déployer la configuration SSH sécurisée
+  template:
+    src: sshd_config.j2
+    dest: /etc/ssh/sshd_config.d/99-security.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Tester la configuration SSH avant reload
+  command: sshd -t
+  register: sshd_test
+  ignore_errors: true
+
+- name: Recharger le service SSH si test OK
+  systemd:
+    name: ssh
+    state: reloaded
+  when: sshd_test.rc == 0
+
+- name: Alerter si le test SSH a échoué
+  fail:
+    msg: "Test SSH a échoué, vérifiez votre configuration avant de redémarrer SSH !"
+  when: sshd_test.rc != 0

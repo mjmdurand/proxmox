@@ -1,0 +1,5 @@
+id_rsa
+proxmox.config
+.packer.d
+packer_cache
+ansible/roles/*.*/

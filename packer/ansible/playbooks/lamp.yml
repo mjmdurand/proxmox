@@ -1,0 +1,40 @@
+---
+# playbook.yml
+- name: 'Provision LAMP VM'
+  hosts: all
+  become: true
+
+  roles:
+    # - tree-structure
+    - geerlingguy.apache
+    # - apache-prod-config
+    - geerlingguy.php-versions 
+    - geerlingguy.php    
+    - geerlingguy.php-pecl    
+    - geerlingguy.apache-php-fpm
+    # - php-config 
+    - geerlingguy.mysql
+    - prometheus.prometheus.node_exporter
+
+  tasks:      
+    - name: Ensure Apache mods are properly disabled.
+      file:
+        path: "{{ apache_server_root }}/mods-enabled/{{ item }}.load"
+        state: absent
+      with_items: "{{ apache_mods_disabled }}"
+      notify: restart apache
+    - name: Ensure Apache mods conf are properly disabled.
+      file:
+        path: "{{ apache_server_root }}/mods-enabled/{{ item }}.conf"
+        state: absent
+      with_items: "{{ apache_mods_disabled }}"
+      notify: restart apache
+
+    - name: Enable Apache mods.
+      file:
+        src: "{{ apache_server_root }}/mods-available/{{ item }}.load"
+        dest: "{{ apache_server_root }}/mods-enabled/{{ item }}.load"
+        state: link
+        mode: 0644
+      with_items: "{{ apache_mods_enabled }}"
+      notify: restart apache

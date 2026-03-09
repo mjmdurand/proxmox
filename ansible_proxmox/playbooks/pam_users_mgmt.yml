@@ -1,0 +1,7 @@
+---
+- name: Manager PAM users
+  hosts: all
+  become: true
+
+  roles:
+    - linux_users

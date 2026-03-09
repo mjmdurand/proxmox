@@ -1,0 +1,14 @@
+services:
+  packer:
+    # image: registry.urios.local/devops/urios_packer:latest
+    build:
+      context: docker/packer
+      dockerfile: Dockerfile
+    entrypoint: ["sleep", "infinity"]
+    environment:
+      - PACKER_PLUGIN_PATH=/workspace/.packer.d/plugins
+      - PROXMOX_URL=https://10.0.0.1:8006/api2/json
+      - PROXMOX_USERNAME=root@pam!packer-test
+      - PROXMOX_TOKEN=55a3f7e0-f922-4c09-b9b3-ccfc71c04f08
+    volumes:
+      - .:/workspace/

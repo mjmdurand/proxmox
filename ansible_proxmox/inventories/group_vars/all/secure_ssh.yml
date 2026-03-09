@@ -1,0 +1,7 @@
+# secure_ssh_port: 2222
+secure_ssh_root_login: "no"
+secure_ssh_password_authentication: "no"
+secure_ssh_kbd_interactive_authentication: "no"
+secure_ssh_max_auth_tries: 3
+secure_ssh_login_grace_time: "30s"
+

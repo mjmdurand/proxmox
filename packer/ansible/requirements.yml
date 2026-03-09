@@ -1,0 +1,14 @@
+# from galaxy
+collections:
+  - name: community.general
+  - name: prometheus.prometheus
+  - name: community.grafana
+
+
+roles:
+  - name: geerlingguy.apache
+  - name: geerlingguy.php-versions
+  - name: geerlingguy.php
+  - name: geerlingguy.php-pecl
+  - name: geerlingguy.apache-php-fpm
+  - name: geerlingguy.mysql

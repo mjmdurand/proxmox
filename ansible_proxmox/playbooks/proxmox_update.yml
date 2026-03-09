@@ -1,0 +1,153 @@
+- hosts: all
+  become: true
+  serial: 1   # Node par node pour cluster
+
+  tasks:
+  #################################################
+  # Version actuelle
+  #################################################
+  - name: Version actuelle PVE
+    shell: pveversion
+    register: release_pve
+    when: inventory_hostname.startswith('pve')
+
+  - name: Version actuelle PBS
+    shell: proxmox-backup-manager version
+    register: release_pbs
+    when: inventory_hostname.startswith('pbs')
+
+  - name: Version actuelle PDM
+    shell: dpkg -s proxmox-datacenter-manager | grep '^Version:' | awk '{print $2}'
+    register: release_pdm
+    when: inventory_hostname.startswith('pdm')
+
+  - name: Extraire version lisible
+    set_fact:
+      proxmox_version: >-
+        {% if inventory_hostname.startswith('pve') %}
+        {{ release_pve.stdout.split()[0].split('/')[-2] }}
+        {% elif inventory_hostname.startswith('pbs') %}
+        {{ release_pbs.stdout.split()[-1] }}
+        {% elif inventory_hostname.startswith('pdm') %}
+        {{ release_pdm.stdout }}
+        {% else %}
+        unknown
+        {% endif %}
+
+  - name: Notification version actuelle
+    debug:
+      msg: "Version actuelle {{ proxmox_version }}"
+
+  #################################################
+  # MAINTENANCE MODE PVE
+  #################################################
+  - name: Mode maintenance activé
+    debug:
+      msg: "Mode maintenance activé"
+    when: inventory_hostname.startswith('pve')
+
+  - name: Maintenance ON
+    shell: ha-manager crm-command node-maintenance enable $(hostname)
+    when: inventory_hostname.startswith('pve')
+
+  - name: Attendre migration VM PVE
+    ansible.builtin.pause:
+      minutes: "{{ wait_migration_pause_minutes | default(5) }}"
+    when: inventory_hostname.startswith('pve')
+
+  #################################################
+  # UPDATE APT
+  #################################################
+  - name: Mise à jour cache apt
+    apt:
+      update_cache: yes
+
+  - name: Dist upgrade
+    apt:
+      upgrade: dist
+
+  #################################################
+  # KERNEL CHECK
+  #################################################
+  - name: Kernel disponible
+    shell: ls -t /boot/vmlinuz-* | sed "s/\/boot\/vmlinuz-//g" | head -n1
+    register: kernel_dispo
+
+  - name: Kernel actuel
+    shell: uname -r
+    register: kernel_actuel
+
+  - name: Vérification kernel
+    debug:
+      msg: "Redémarrage recommandé : actuel {{ kernel_actuel.stdout }} disponible {{ kernel_dispo.stdout }}"
+    when: kernel_dispo.stdout != kernel_actuel.stdout
+
+  #################################################
+  # VERSION APRÈS UPGRADE
+  #################################################
+  - name: Version après upgrade PVE
+    shell: pveversion
+    register: new_release_pve
+    when: inventory_hostname.startswith('pve')
+
+  - name: Version après upgrade PBS
+    shell: proxmox-backup-manager version
+    register: new_release_pbs
+    when: inventory_hostname.startswith('pbs')
+
+  - name: Version après upgrade PDM
+    shell: dpkg -s proxmox-datacenter-manager | grep '^Version:' | awk '{print $2}'
+    register: new_release_pdm
+    when: inventory_hostname.startswith('pdm')
+
+  - name: Extraire version lisible
+    set_fact:
+      new_proxmox_version: >-
+        {% if inventory_hostname.startswith('pve') %}
+        {{ new_release_pve.stdout.split()[0].split('/')[-2] }}
+        {% elif inventory_hostname.startswith('pbs') %}
+        {{ new_release_pbs.stdout.split()[-1] }}
+        {% elif inventory_hostname.startswith('pdm') %}
+        {{ new_release_pdm.stdout }}
+        {% else %}
+        unknown
+        {% endif %}
+
+
+  - name: Notification changement version
+    debug:
+      msg: "Version changée {{ proxmox_version }} -> {{ new_proxmox_version }}"
+    when: proxmox_version != new_proxmox_version
+
+  #################################################
+  # SERVICES
+  #################################################
+  - name: Installer needrestart
+    apt:
+      name: needrestart
+      state: present
+
+  - name: Lister services à redémarrer
+    shell: needrestart -rl
+    register: services
+
+  - name: Afficher services
+    debug:
+      msg: "{{ services.stdout_lines }}"
+
+  - name: Redémarrer services
+    shell: needrestart -ra
+
+  #################################################
+  # CLEAN
+  #################################################
+  - name: Nettoyage paquets
+    apt:
+      autoremove: yes
+
+  #################################################
+  # MAINTENANCE OFF PVE
+  #################################################
+  - name: Maintenance OFF
+    shell: ha-manager crm-command node-maintenance disable $(hostname)
+    when: inventory_hostname.startswith('pve')
